@@ -10,20 +10,16 @@ Covers infrastructure provisioning via OpenTofu and hands off to Ansible for sys
 
 ```
 homelab-iac/
-├── secrets/                  # Reusable Vaultwarden connector module
-│   ├── providers.tf
-│   ├── secrets.tf
-│   ├── variables.tf
-│   └── outputs.tf
 ├── modules/                  # Reusable infrastructure modules
-│   ├── wireguard/
-│   ├── opnsense/
+│   ├── secrets/              # Vaultwarden connector module
+│   ├── opnsense-dns/
+│   ├── opnsense-firewall/
+│   ├── opnsense-wireguard/
 │   └── proxmox/
-├── environments/             # Per-environment root modules
-│   ├── prod/
-│   └── dev/
 └── .gitignore
 ```
+
+Environments and infrastructure definitions live in the private `homelab-infra` repository, which references modules from this repo via GitHub source references.
 
 ---
 
@@ -160,7 +156,7 @@ Add these to `~/.envrc` (if using [direnv](https://direnv.net/)) or your shell p
 
 ## The secrets module
 
-The `secrets/` directory is a reusable module that authenticates against Vaultwarden and retrieves Login items and SSH keys by name. It is not a root module — it is called by environment root modules.
+`modules/secrets/` is a reusable module that authenticates against Vaultwarden and retrieves Login items and SSH keys by name. It is not a root module — it is called by environment root modules in `homelab-infra`.
 
 ### Variables
 
@@ -193,7 +189,7 @@ Both outputs are marked `sensitive = true` and will not appear in plan or apply 
 
 ```hcl
 module "secrets" {
-  source = "../../secrets"
+  source = "github.com/yournick/homelab-iac//modules/secrets?ref=v1.0.0"
 
   bw_server          = var.bw_server
   bw_email           = var.bw_email
@@ -205,7 +201,6 @@ module "secrets" {
   secret_names = ["test_secret"]
 }
 
-# consume the secret
 output "test_username" {
   value     = module.secrets.credentials["test_secret"].username
   sensitive = true
@@ -221,7 +216,7 @@ output "test_password" {
 
 ```hcl
 module "shared_secrets" {
-  source = "../../secrets"
+  source = "github.com/yournick/homelab-iac//modules/secrets?ref=v1.0.0"
 
   bw_server          = var.bw_server
   bw_email           = var.bw_email
@@ -234,7 +229,6 @@ module "shared_secrets" {
   ssh_key_names = ["ansible-ssh-key"]
 }
 
-# consume the SSH key
 output "ansible_private_key" {
   value     = module.shared_secrets.ssh_keys["ansible-ssh-key"].private_key
   sensitive = true
@@ -245,20 +239,20 @@ output "ansible_private_key" {
 
 ```hcl
 module "secrets" {
-  source       = "../../secrets"
+  source       = "github.com/yournick/homelab-iac//modules/secrets?ref=v1.0.0"
   # ... auth vars ...
   secret_names = ["opnsense-api-key", "proxmox-api-token"]
 }
 
 module "shared_secrets" {
-  source        = "../../secrets"
+  source        = "github.com/yournick/homelab-iac//modules/secrets?ref=v1.0.0"
   # ... auth vars ...
   collection    = "shared"
   ssh_key_names = ["ansible-ssh-key"]
 }
 
 module "wg_example" {
-  source = "../../modules/wireguard"
+  source = "github.com/yournick/homelab-iac//modules/opnsense-wireguard?ref=v1.0.0"
 
   preshared_key  = module.secrets.credentials["wg-example-preshared-key"].password
   ssh_public_key = module.shared_secrets.ssh_keys["ansible-ssh-key"].public_key
@@ -269,10 +263,11 @@ module "wg_example" {
 
 ## Running a plan
 
-```bash
-# from an environment directory
-cd environments/prod
+Plans and applies are run from `homelab-infra`, not this repository. This repo contains modules only.
 
+```bash
+# in homelab-infra
+cd environments/prod
 tofu init
 tofu plan
 tofu apply
@@ -332,6 +327,7 @@ Folders are optional and for human navigation only. The Tofu module keys off ite
 In a full loss scenario you will need:
 
 - This repository
+- `homelab-infra` (private, Gitea only)
 - Access to [Bitwarden.com](https://bitwarden.com) (cloud backup of your vault)
 - Your master password and API key credentials
 
@@ -373,3 +369,14 @@ The following are excluded from version control:
 | Provider | Source | Version |
 |---|---|---|
 | bitwarden | `maxlaverse/bitwarden` | `~> 0.17.6` |
+
+---
+
+## Related repositories
+
+| Repository | Visibility | Purpose |
+|---|---|---|
+| `homelab-iac` | Public | This repo — reusable Tofu modules |
+| `homelab-ansible` | Public | Reusable Ansible roles |
+| `homelab-infra` | Private | Environment definitions, actual infrastructure config |
+| `homelab-config` | Private | Ansible playbooks, inventory, host and group vars |

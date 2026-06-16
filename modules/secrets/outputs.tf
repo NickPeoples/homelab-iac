@@ -1,6 +1,7 @@
 # secrets/outputs.tf
 output "credentials" {
-  sensitive = true
+  description = "Map of login item names to their username and password, retrieved from Vaultwarden."
+  sensitive   = true
   value = {
     for name, item in data.bitwarden_item_login.secrets :
     name => {
@@ -11,7 +12,8 @@ output "credentials" {
 }
 
 output "ssh_keys" {
-  sensitive = true
+  description = "Map of SSH key item names to their private and public keys, retrieved from Vaultwarden."
+  sensitive   = true
   value = {
     for name, item in data.bitwarden_item_ssh_key.ssh_keys :
     name => {

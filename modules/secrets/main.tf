@@ -1,4 +1,4 @@
-# secrets/secrets.tf
+# secrets/main.tf
 data "bitwarden_organization" "homelab" {
   search = var.bw_organization
 }
