@@ -1,0 +1,61 @@
+# .drone.yml
+kind: pipeline
+type: docker
+name: homelab-iac
+
+trigger:
+  event:
+    - push
+    - pull_request
+
+steps:
+  - name: fmt
+    image: ghcr.io/opentofu/opentofu:1.12.1
+    commands:
+      - tofu fmt -check -recursive
+
+  - name: validate
+    image: ghcr.io/opentofu/opentofu:1.12.1
+    commands:
+      - cd modules/secrets && tofu init -backend=false && tofu validate && cd ../..
+
+  - name: tflint
+    image: ghcr.io/terraform-linters/tflint:v0.63.0
+    commands:
+      - tflint --init --config=/drone/src/.tflint.hcl
+      - tflint --recursive --config=/drone/src/.tflint.hcl
+
+  - name: checkov
+    image: bridgecrew/checkov:latest
+    commands:
+      - checkov -d . --framework terraform --quiet
+
+  - name: secret-scan
+    image: zricethezav/gitleaks:latest
+    when:
+      event:
+        - push
+      branch:
+        - main
+    commands:
+      - gitleaks detect --source . --verbose --redact
+
+  - name: mirror-github
+    image: alpine/git:latest
+    depends_on:
+      - fmt
+      - validate
+      - tflint
+      - checkov
+      - secret-scan
+    when:
+      event:
+        - push
+      branch:
+        - main
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - git remote add github https://oauth2:$GITHUB_TOKEN@github.com/NickPeoples/homelab-iac.git
+      - git push github main --tags
