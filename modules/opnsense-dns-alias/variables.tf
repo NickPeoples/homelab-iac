@@ -4,8 +4,8 @@ variable "alias_hostname" {
   type        = string
 }
 
-variable "target_hostname" {
-  description = "Hostname of the existing host override this alias points to, without domain."
+variable "target_override_id" {
+  description = "ID of the existing opnsense_unbound_host_override resource this alias points to."
   type        = string
 }
 
