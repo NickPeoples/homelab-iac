@@ -14,10 +14,28 @@ variable "hostname" {
   type        = string
 }
 
+variable "network_mode" {
+  description = "Docker network mode. Set to the primary network name for the container."
+  type        = string
+  default     = "bridge"
+}
+
 variable "networks" {
-  description = "List of Docker networks to attach the container to."
+  description = "Additional networks to attach the container to beyond network_mode."
   type        = list(string)
   default     = []
+}
+
+variable "create_network" {
+  description = "Whether to create a dedicated Docker network for this container."
+  type        = bool
+  default     = false
+}
+
+variable "network_name" {
+  description = "Name of the dedicated network to create, if create_network is true."
+  type        = string
+  default     = ""
 }
 
 variable "volumes" {
@@ -49,8 +67,14 @@ variable "labels" {
 }
 
 variable "env" {
-  description = "Map of environment variables to set in the container."
+  description = "Map of environment variables."
   type        = map(string)
   default     = {}
   sensitive   = true
+}
+
+variable "log_opts" {
+  description = "Docker log driver options."
+  type        = map(string)
+  default     = {}
 }

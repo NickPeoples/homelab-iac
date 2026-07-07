@@ -20,11 +20,22 @@ resource "docker_volume" "this" {
   name     = each.key
 }
 
+resource "docker_network" "this" {
+  count  = var.create_network ? 1 : 0
+  name   = var.network_name
+  driver = "bridge"
+
+  internal = true
+}
+
 resource "docker_container" "this" {
-  name     = var.name
-  image    = docker_image.this.image_id
-  hostname = var.hostname
-  restart  = "unless-stopped"
+  name         = var.name
+  image        = docker_image.this.image_id
+  hostname     = var.hostname
+  restart      = "unless-stopped"
+  network_mode = var.network_mode
+
+  log_opts = var.log_opts
 
   dynamic "networks_advanced" {
     for_each = var.networks
@@ -33,11 +44,13 @@ resource "docker_container" "this" {
     }
   }
 
-  dynamic "volumes" {
+  dynamic "mounts" {
     for_each = var.volume_mounts
     content {
-      volume_name    = volumes.key
-      container_path = volumes.value
+      source    = mounts.key
+      target    = mounts.value
+      type      = "volume"
+      read_only = false
     }
   }
 
